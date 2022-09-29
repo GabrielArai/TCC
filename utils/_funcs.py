@@ -4,7 +4,28 @@ import requests
 import datetime as dt
 from bs4 import BeautifulSoup
 
-__all__ = ["creating_club_dataframe"]
+__all__ = ["creating_club_dataframe","Transfmkt"]
+
+
+class Transfmkt():
+    """
+    This module is responsible for encapsulating all the functions related to the creation of the
+    predictive model, providing all the common functions for probabilistic time series forecasting.
+    """
+
+    def __init__(self, ):
+        pass
+
+    def data_preprocessing(self, ):
+        pass
+
+
+
+
+
+
+
+
 
 def creating_club_dataframe(
         club_name, 
@@ -169,5 +190,9 @@ def creating_club_dataframe(
         else:
             pass
 
+    temp_inicial_jog = []
+    for lst in temps_jog:
+        last = lst[-1]
+        temp_inicial_jog.append(last)
     
-    return temps_jog
+    return temps_all
