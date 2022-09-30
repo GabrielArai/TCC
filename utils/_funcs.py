@@ -30,6 +30,7 @@ class Transfmkt():
         self.links_jog = None
         self.links_values_jog = None
         self.link_transfers_jog = None
+        self.link_perf_season_jog = None
 
 
     def creating_lists(self):
@@ -139,6 +140,23 @@ class Transfmkt():
                     all.append(temp)
         return all
 
+    def get_saison(self,list):
+        saison = []
+        for item in list:
+            saison.append(str('20'+item[:2]))
+
+        return saison
+
+    def get_saison_perf_links(self,saisons_list,perf_links):
+        all_perf_season_links = []
+        for pflink in perf_links:
+            perf_season_links = []
+            for saison in saisons_list:
+                perf_season_links.append(str(pflink + '/plus/0?saison='+saison+'&verein=&liga=&wettbewerb=&pos=&trainer_id='))
+            all_perf_season_links.append(perf_season_links)
+        
+        return all_perf_season_links
+
     def get_players_seasons(self):
         # Players Seasons
         temps_all = []
@@ -178,18 +196,42 @@ class Transfmkt():
             else:
                 pass
 
+        # Ex: 05/06
         temp_inicial_jog = []
         for lst in temps_jog:
             last = lst[-1]
             temp_inicial_jog.append(last)
 
+        # Ex: 05/06, 06/07, etc, 21/22
         temps_sep_jog = []
         for lst in temp_inicial_jog:
             temps_sep_jog.append(self.get_all_seasons(lst,'21/22'))
 
-        return temps_sep_jog
+        # Ex: 2005, 2006, etc, 2021
+        saisons = []
+        for list in temps_sep_jog:
+            saisons.append(self.get_saison(list))
 
+        # Getting players performance links
+        link_perf_jog = []
+        for link in self.links_values_jog:
+            link_perf_jog.append(link.replace('marktwertverlauf','leistungsdatendetails'))
 
+        # Getting players performance/season links
+        self.link_perf_season_jog = []
+        for list in saisons:
+            self.link_perf_season_jog.append(self.get_saison_perf_links(list,link_perf_jog))
+
+        self.link_perf_season_jog = str(self.link_perf_season_jog)[1:-1]
+        self.link_perf_season_jog = eval(self.link_perf_season_jog)[0]
+
+        return self.link_perf_season_jog
+
+    def get_players_clubs_links(self):
+        pass
+
+    def get_players_performance(self):
+        pass
 
 
 
@@ -290,20 +332,6 @@ def creating_club_dataframe(
 
         for tag_alt in tags_alt:
             alt_jog.append(float(str(tag_alt.text).replace(",",".")[:5].rstrip()))
-
-    # Players performance
-    gols_jog = []
-    
-    
-    
-    
-    
-    
-    
-    # Players value
-    valor_jog = []
-
-
     
     dic = {
         'nome':nomes_jog,
