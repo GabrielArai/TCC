@@ -227,7 +227,7 @@ class Transfmkt():
 
         return self.link_perf_season_jog
 
-    def get_players_clubs_links(self):
+    def get_players_transfers_clubs_links(self):
         pass
 
     def get_players_performance(self):
