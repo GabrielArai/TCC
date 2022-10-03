@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import requests
 import datetime as dt
+from collections import OrderedDict
+from more_itertools.recipes import unique_everseen
 from bs4 import BeautifulSoup
 
 __all__ = ["creating_club_dataframe","Transfmkt"]
@@ -30,6 +32,11 @@ class Transfmkt():
         self.links_jog = None
         self.links_values_jog = None
         self.link_transfers_jog = None
+        self.transf_clubs_all = None
+        self.temps_all = None
+        self.temps_jog = None
+        self.temps_sep_jog = None
+        self.saisons = None
         self.link_perf_season_jog = None
 
 
@@ -140,9 +147,9 @@ class Transfmkt():
                     all.append(temp)
         return all
 
-    def get_saison(self,list):
+    def get_saison(self,lst):
         saison = []
-        for item in list:
+        for item in lst:
             saison.append(str('20'+item[:2]))
 
         return saison
@@ -158,39 +165,54 @@ class Transfmkt():
         return all_perf_season_links
 
     def get_players_seasons(self):
-        # Players Seasons
-        temps_all = []
+        # Players Seasons and transfers clubs links
+        self.transf_clubs_all = []
+        self.temps_all = []
         for link in self.link_transfers_jog:
             end = self.transfmkt_site + link
             obj_resp = requests.get(end, headers=self.headers)
             pag_bs = BeautifulSoup(obj_resp.content, 'html.parser')
+            tags_transf_clubs_all = pag_bs.find_all("div", {"class": "tm-player-transfer-history-grid__new-club"})
             tags_seasons = pag_bs.find_all("div", {"class": "tm-player-transfer-history-grid__season"})
             for tag in tags_seasons:
-                temps_all.append(str(tag.text).replace(" ", "").replace("\n",""))
+                self.temps_all.append(str(tag.text).replace(" ", "").replace("\n",""))
 
-        cont = temps_all.count('Temporada')
+            tags_transf_clubs = BeautifulSoup(str(tags_transf_clubs_all).strip('[]'), 'html.parser')
+            
+            transf_clubs = []
+            for a in tags_transf_clubs.find_all('a', href=True):
+                transf_clubs.append(a['href'])
+                transf_clubs = list(unique_everseen(transf_clubs))
+            
+            if len(transf_clubs) == 0:
+                self.transf_clubs_all.append(['pegar_valor_atual'])
+            else:
+                self.transf_clubs_all.append(transf_clubs)
+
+        
+        cont = self.temps_all.count('Temporada')
         idxs = []
         c = 0
-        temps_jog = []
+        self.temps_jog = []
 
         for d in range(0,cont):
-            i = temps_all.index('Temporada',c)
+            i = self.temps_all.index('Temporada',c)
             c = i + 1
             idxs.append(i)
             c = i + 1
-        idxs.append(len(temps_all))
+        idxs.append(len(self.temps_all))
         idxs.pop(0)
 
         c = 0
         for d in range(0,cont):
-            part = temps_all[c:idxs[d]]
-            temps_jog.append(part)
+            part = self.temps_all[c:idxs[d]]
+            self.temps_jog.append(part)
             c += len(part)
 
-        for lst in temps_jog:
+        for lst in self.temps_jog:
             lst.pop(0)
 
-        for lst in temps_jog:
+        for lst in self.temps_jog:
             if len(lst) == 0:
                 lst.append('21/22')
             else:
@@ -198,19 +220,19 @@ class Transfmkt():
 
         # Ex: 05/06
         temp_inicial_jog = []
-        for lst in temps_jog:
+        for lst in self.temps_jog:
             last = lst[-1]
             temp_inicial_jog.append(last)
 
         # Ex: 05/06, 06/07, etc, 21/22
-        temps_sep_jog = []
+        self.temps_sep_jog = []
         for lst in temp_inicial_jog:
-            temps_sep_jog.append(self.get_all_seasons(lst,'21/22'))
+            self.temps_sep_jog.append(self.get_all_seasons(lst,'21/22'))
 
         # Ex: 2005, 2006, etc, 2021
-        saisons = []
-        for list in temps_sep_jog:
-            saisons.append(self.get_saison(list))
+        self.saisons = []
+        for lst in self.temps_sep_jog:
+            self.saisons.append(self.get_saison(lst))
 
         # Getting players performance links
         link_perf_jog = []
@@ -219,16 +241,29 @@ class Transfmkt():
 
         # Getting players performance/season links
         self.link_perf_season_jog = []
-        for list in saisons:
-            self.link_perf_season_jog.append(self.get_saison_perf_links(list,link_perf_jog))
+        for lst in self.saisons:
+            self.link_perf_season_jog.append(self.get_saison_perf_links(lst,link_perf_jog))
 
         self.link_perf_season_jog = str(self.link_perf_season_jog)[1:-1]
         self.link_perf_season_jog = eval(self.link_perf_season_jog)[0]
 
-        return self.link_perf_season_jog
+        return self.transf_clubs_all #self.link_perf_season_jog
 
     def get_players_transfers_clubs_links(self):
-        pass
+        # self.link_transfers_jog
+
+        saison_transf = []
+        for lst in self.temps_jog:
+            saison_transf.append(self.get_saison(lst))
+
+        dic_transf = {
+            'data':saison_transf[0],
+            'link_transferencia':self.transf_clubs_all[0]
+        }
+
+        df_transf = pd.DataFrame(dic_transf)
+
+        return df_transf
 
     def get_players_performance(self):
         pass
