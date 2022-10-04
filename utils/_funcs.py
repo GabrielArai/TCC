@@ -38,6 +38,7 @@ class Transfmkt():
         self.temps_sep_jog = None
         self.saisons = None
         self.link_perf_season_jog = None
+        self.values_links = None
 
 
     def creating_lists(self):
@@ -180,9 +181,12 @@ class Transfmkt():
             tags_transf_clubs = BeautifulSoup(str(tags_transf_clubs_all).strip('[]'), 'html.parser')
             
             transf_clubs = []
-            for a in tags_transf_clubs.find_all('a', href=True):
-                transf_clubs.append(a['href'])
-                transf_clubs = list(unique_everseen(transf_clubs))
+            for a in tags_transf_clubs.find_all('a', {"class":"tm-player-transfer-history-grid__club-link"}):
+                if a.get('href') == None:
+                    transf_clubs.append('sem_clube')
+                else:
+                    transf_clubs.append(a.get('href'))
+                #transf_clubs = list(unique_everseen(transf_clubs))
             
             if len(transf_clubs) == 0:
                 self.transf_clubs_all.append(['pegar_valor_atual'])
@@ -247,23 +251,49 @@ class Transfmkt():
         self.link_perf_season_jog = str(self.link_perf_season_jog)[1:-1]
         self.link_perf_season_jog = eval(self.link_perf_season_jog)[0]
 
-        return self.transf_clubs_all #self.link_perf_season_jog
+        return self.saisons[0] #self.link_perf_season_jog
 
-    def get_players_transfers_clubs_links(self):
+    def get_values_links(self):
         # self.link_transfers_jog
 
         saison_transf = []
         for lst in self.temps_jog:
             saison_transf.append(self.get_saison(lst))
 
-        dic_transf = {
-            'data':saison_transf[0],
-            'link_transferencia':self.transf_clubs_all[0]
-        }
+        self.values_links = []
+        for num in range(0,len(self.nomes_jog)): # len(self.nomes_jog)
+            
+            # link transferência sem o saison
+            link_transf_no_saison = []
+            for saison in self.transf_clubs_all[num]:
+                link_transf_no_saison.append(str(saison.replace('transfers','kader')[:-4]))
 
-        df_transf = pd.DataFrame(dic_transf)
+            print(num)
+            print(len(link_transf_no_saison))
+            print(link_transf_no_saison)
 
-        return df_transf
+            dic_transf = {
+                'data':saison_transf[num],
+                'link_valor':link_transf_no_saison,
+                'nome':self.nomes_jog[num]
+            }
+
+            dic_dates = {'data':self.saisons[num]}
+
+            df_transf = pd.DataFrame(dic_transf)
+            df_dates = pd.DataFrame(dic_dates)
+
+            df_transf = df_transf.groupby('data').first().reset_index()
+
+            df_merged = df_dates.merge(df_transf, how='left', left_on='data', right_on='data')
+            df_merged = df_merged.fillna(method="ffill")
+
+            df_merged['link_compl'] = df_merged['link_valor'] + df_merged['data']
+            self.values_links.append(df_merged['link_compl'].to_list())
+            print(f"{self.nomes_jog[num]} foi")
+
+
+        return # self.nomes_jog
 
     def get_players_performance(self):
         pass
