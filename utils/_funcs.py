@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import requests
 import datetime as dt
-from collections import OrderedDict
-from more_itertools.recipes import unique_everseen
+# from collections import OrderedDict
+# from more_itertools.recipes import unique_everseen
 from bs4 import BeautifulSoup
 
 __all__ = ["creating_club_dataframe","Transfmkt"]
@@ -53,13 +53,13 @@ class Transfmkt():
 
         # Players names
         self.nomes_jog = [] # List that will receive all the players names - check
-        tags_nomes = pagina_bs.find_all("span", {"class": "show-for-small"})
+        tags_nomes = pagina_bs.find_all("td", {"class": "hide", "itemprop":"athlete"})
         for tag_nome in tags_nomes:
             self.nomes_jog.append(tag_nome.text)
 
         # Players links
         self.links_jog = [] # List that will receive all the players profile links - check
-        tags_links = BeautifulSoup(str(tags_nomes).strip('[]'), 'html.parser')
+        tags_links = BeautifulSoup(str(pagina_bs.find_all("span", {"class": "show-for-small"})).strip('[]'), 'html.parser')
         for a in tags_links.find_all('a', href=True):
             self.links_jog.append(a['href'])
 
@@ -132,6 +132,8 @@ class Transfmkt():
             for tag_alt in tags_alt:
                 self.alt_jog.append(float(str(tag_alt.text).replace(",",".")[:5].rstrip()))
 
+        # return self.nomes_jog
+
     def get_all_seasons(self,temp,temp_limit):
         all = []
         all.append(temp)
@@ -181,17 +183,28 @@ class Transfmkt():
             tags_transf_clubs = BeautifulSoup(str(tags_transf_clubs_all).strip('[]'), 'html.parser')
             
             transf_clubs = []
-            for a in tags_transf_clubs.find_all('a', {"class":"tm-player-transfer-history-grid__club-link"}):
-                if a.get('href') == None:
-                    transf_clubs.append('sem_clube')
+            for a in tags_transf_clubs.find_all('a', href = True):
+                if 'sem-clube' in a.get('href'):
+                    transf_clubs.append(a.get('href'))
+                    transf_clubs.append('x')
                 else:
                     transf_clubs.append(a.get('href'))
-                #transf_clubs = list(unique_everseen(transf_clubs))
+
+            pares = []
+            for c in range(0,len(transf_clubs)):
+                if c % 2 == 0:
+                    pares.append(c)
+                else:
+                    pass
+
+            transf_clubs_att = []
+            for par in pares:
+                transf_clubs_att.append(transf_clubs[par])
             
-            if len(transf_clubs) == 0:
-                self.transf_clubs_all.append(['pegar_valor_atual'])
+            if len(transf_clubs_att) == 0:
+                self.transf_clubs_all.append([f'/{self.club_name}/transfers/verein/{self.club_id}/saison_id/2021'])
             else:
-                self.transf_clubs_all.append(transf_clubs)
+                self.transf_clubs_all.append(transf_clubs_att)
 
         
         cont = self.temps_all.count('Temporada')
@@ -251,7 +264,7 @@ class Transfmkt():
         self.link_perf_season_jog = str(self.link_perf_season_jog)[1:-1]
         self.link_perf_season_jog = eval(self.link_perf_season_jog)[0]
 
-        return self.saisons[0] #self.link_perf_season_jog
+        return self.nomes_jog #self.link_perf_season_jog
 
     def get_values_links(self):
         # self.link_transfers_jog
@@ -266,11 +279,7 @@ class Transfmkt():
             # link transferência sem o saison
             link_transf_no_saison = []
             for saison in self.transf_clubs_all[num]:
-                link_transf_no_saison.append(str(saison.replace('transfers','kader')[:-4]))
-
-            print(num)
-            print(len(link_transf_no_saison))
-            print(link_transf_no_saison)
+                link_transf_no_saison.append(str(saison.replace('transfers','kader')[:-4])) # modif # kader
 
             dic_transf = {
                 'data':saison_transf[num],
@@ -290,10 +299,50 @@ class Transfmkt():
 
             df_merged['link_compl'] = df_merged['link_valor'] + df_merged['data']
             self.values_links.append(df_merged['link_compl'].to_list())
-            print(f"{self.nomes_jog[num]} foi")
+            # print(f"{self.nomes_jog[num]} foi")
 
 
-        return # self.nomes_jog
+        return self.values_links
+
+    def get_players_values(self):
+        cont_names = 0
+        all_players_values = []
+        for player_links in self.values_links:
+            player_values = []
+            for link in player_links:
+                end = self.transfmkt_site + link
+                obj_resp = requests.get(end, headers=self.headers)
+                pag_bs = BeautifulSoup(obj_resp.content, 'html.parser')
+                tags_even = pag_bs.find_all("tr", {"class": "even"})
+                tags_odd = pag_bs.find_all("tr", {"class": "odd"})
+                all_tags = tags_even + tags_odd
+                name = self.nomes_jog[cont_names]
+                all_tags_att = BeautifulSoup(str(all_tags).strip('[]'), 'html.parser')
+                names_list = []
+                for tag in all_tags_att.find_all("td", {"class": "posrela"}):
+                    names_list.append(str(tag.a.text).strip())
+
+                try:
+                    name_turn = names_list.index(name)
+                    player_tag = BeautifulSoup(str(all_tags[name_turn]).strip('[]'), 'html.parser')
+                    player_value = player_tag.find("td", {"class": "rechts hauptlink"}).text
+                    if 'mil €' in player_value:
+                        player_value = int(str(player_value.split()[0] + '000'))
+                    else:
+                        num_bef = str(player_value.split()[0].split(',')[0])
+                        num_after = str(player_value.split()[0].split(',')[1][0])
+                        player_value = int(num_bef + num_after + '00000')
+                except:
+                    player_value = 0
+                
+                player_values.append(player_value)
+            all_players_values.append(player_values)
+            
+            cont_names += 1
+
+        return all_players_values
+
+
 
     def get_players_performance(self):
         pass
