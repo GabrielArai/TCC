@@ -4,6 +4,7 @@ Module containing data processing functions
 
 import numpy as np
 import pandas as pd
+from category_encoders import TargetEncoder
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 def check_nan(
@@ -30,7 +31,7 @@ def check_nan(
             dic_nan['percentage'].append(round(sum_na/total, 3))
     return pd.DataFrame(dic_nan)
 
-def cat_encoder(
+def cat_onehotencoding(
         df: pd.DataFrame = None,
         cols_enc: list = None
     ):
@@ -58,6 +59,37 @@ def cat_encoder(
         enc_mapping.append([col, mapping])
 
     return df
+
+def cat_targetencoding(
+        df: pd.DataFrame = None,
+        cols_enc: list = None,
+        target_col: str = None
+    ):
+    """
+    Encoding categorical features
+
+    Args:
+        df (pd.DataFrame):
+        Dataframe that will be used to encode the respective categorical features.
+
+        cols_enc (list):
+        A list containing the name of the columns that will be encoded.
+
+        target_col (str):
+        A string with the name of the target column.
+
+    Returns:
+        pd.DataFrame: Dataframe with the categorical columns encoded.
+    """
+
+    encoder = TargetEncoder()
+
+    for col in cols_enc:
+        df[f'{col}_encoded'] = encoder.fit_transform(df[col], df[target_col])
+
+    df_encoded = df.drop(cols_enc, axis=1)
+
+    return df_encoded
 
 def norm_features(
         df: pd.DataFrame = None,
